@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import xlrd
 
@@ -17,17 +17,20 @@ class Mission:
     fin_mission = None
     definition = ''
 
-    def __init__(self, num_mission, definition):
+    def __init__(self, num_mission, definition, jour=datetime.today()):
         self.num_mission = num_mission
         self.definition = definition
-        m = re.fullmatch(regex, definition).groups()
-        self.prise_mission = parseHeure(m[2] or m[4])
-        self.lieu_mission = m[3]
-        self.debut_service = parseHeure(m[4])
-        self.fin_service = parseHeure(m[7])
-        self.lieu_fin_service = m[8]
-        self.fin_mission = parseHeure(m[9])
+        self.__parse_definition_horraire(definition, jour)
         self.__suppose_lieux_depuis_mission()
+
+    def __parse_definition_horraire(self, definition, jour):
+        m = re.fullmatch(regex, definition).groups()
+        self.prise_mission = parseHeure(m[2] or m[4], jour)
+        self.lieu_mission = m[3]
+        self.debut_service = parseHeure(m[4], jour)
+        self.fin_service = parseHeure(m[7] or m[9], jour)
+        self.lieu_fin_service = m[8]
+        self.fin_mission = parseHeure(m[9], jour)
 
     def __suppose_lieux_depuis_mission(self):
         if self.lieu_mission is None:
@@ -41,6 +44,21 @@ class Mission:
             elif self.num_mission.startswith('B'):
                 self.lieu_fin_service = 'C'
 
+    def to_row_value(self):
+        return [
+            self.num_mission,
+            self.definition,
+            self.prise_mission.strftime('%d/%m/%Y %H:%M'),
+            self.lieu_mission,
+            self.debut_service.strftime('%d/%m/%Y %H:%M'),
+            self.fin_service.strftime('%d/%m/%Y %H:%M'),
+            self.lieu_fin_service,
+            self.fin_mission.strftime('%d/%m/%Y %H:%M'),
+        ]
+
+    def __str__(self):
+        return ' '.join(self.to_row_value())
+
 
 
 def import_excel(excel):
@@ -49,13 +67,16 @@ def import_excel(excel):
     return mySheet
 
 
-def parseHeure(h):
+def parseHeure(h, jour):
     if h is None:
         return None
-    return datetime.strptime(h, '%H%M').time()
+    time = datetime.strptime(h, '%H%M').time()
+    if time < datetime.strptime('300', '%H%M').time():
+        jour += timedelta(days=1)
+    return datetime.combine(jour, time)
 
 
-def list_horaires(sheet, groupe):
+def list_horaires(sheet, groupe, jour):
     row = None
     for row_num in range(sheet.nrows):
         row_value = sheet.row_values(row_num)
@@ -67,12 +88,12 @@ def list_horaires(sheet, groupe):
         raise Exception('Groupe introuvable!')
     for x in range(row.count('')):
         row.remove('')
-    works = [Mission(row[i], row[i+1]) for i in range(0, len(row), 2)]
-    print(works)
+    works = [Mission(row[i], row[i+1], jour) for i in range(0, len(row), 2)]
+    [print(work) for work in works]
 
 
 if __name__ == "__main__":
     path = 'data-test/test 1.xls'
-    gpe = 11
+    gpe = 40
     excelHoraires = import_excel(path)
-    list_horaires(excelHoraires, gpe, datetime(2018,1,3))
+    list_horaires(excelHoraires, gpe, datetime(2018, 1, 3))
