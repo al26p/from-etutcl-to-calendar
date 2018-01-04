@@ -220,8 +220,9 @@ class Crawler:
                 self.cookies.update(historicResponse.cookies)
         self.cookies.update(r.cookies)
 
-    def load_dispos(self):
-        r = self.session.get(self.url + '/dispos', cookies=self.cookies)
+    def load_dispos(self, semaine):
+        print(semaine)
+        r = self.session.get(self.url + '/dispos/' + semaine, cookies=self.cookies)
         content = str(r.content, 'utf-8')
         soup = BeautifulSoup(content, 'html.parser')
         tables = soup.find_all('table', "data")
@@ -299,6 +300,17 @@ def clean():
 if __name__ == "__main__":
     c = Crawler(ETUTCL_USER, ETUTCL_PWD, ETUTCL_URL)
     c.login_on_site()
-    missions = c.load_dispos()
-    [mission.event_to_google() for mission in missions]
+    annee = 2015
+    semaine = 1
+    parisTz = pytz.timezone('Europe/Paris')
+    now = parisTz.localize(datetime.now())
+    annee = now.strftime('%Y')
+    semaine = now.strftime('%W')
+    for x in range(0, 2):
+        semaine = int(semaine) + x
+        annee = str(annee)
+        semaine = str(semaine)
+        urlSemaine = annee + '/' + semaine
+        missions = c.load_dispos(urlSemaine)
+        [mission.event_to_google() for mission in missions]
     clean()
