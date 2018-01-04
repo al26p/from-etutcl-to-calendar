@@ -2,7 +2,7 @@ from __future__ import print_function
 import hashlib
 import re
 from datetime import datetime, timedelta
-
+import json
 import os
 import requests
 from bs4 import BeautifulSoup
@@ -18,13 +18,18 @@ from oauth2client.file import Storage
 
 regex = r"((([0-9]{3,4})(a|sa|sd|DL)?)[ \/])?([0-9]{3,4}) x ((([0-9]{3,4})(a|sa|sd|DL)?)[ \/])?([0-9]{3,4})"
 
-SCOPES = 'https://www.googleapis.com/auth/calendar'
-APPLICATION_NAME = 'from-etutcl-to-calendar'
-CLIENT_SECRET_FILE = 'data/credentials/client_secret.json'
-CALENDAR_ID = os.environ.get("CALENDARID")
-ETUTCL_USER = os.environ.get("ETUTCLUSER")
-ETUTCL_PWD = os.environ.get("ETUTCLPASSWORD")
-API_KEY = os.environ.get("APIKEY")
+
+with open('config/config.json', 'r') as outfile:
+    config = json.load(outfile)
+
+SCOPES = config['google-calendar']['scopes']
+APPLICATION_NAME = config['google-calendar']['app_name']
+CLIENT_SECRET_FILE = config['google-calendar']['client_secret_file']
+CALENDAR_ID = config['google-calendar']['calendar_id']
+ETUTCL_USER = config['etutcl']['user']
+ETUTCL_PWD = config['etutcl']['password']
+API_KEY = config['google-calendar']['api_key']
+ETUTCL_URL = config['etutcl']['url']
 flags = []
 
 
@@ -187,7 +192,7 @@ class Crawler:
 
     folder = os.path.join(os.getcwd(), 'data/xls')
 
-    def __init__(self, login, password, url="http://etutcl.fr"):
+    def __init__(self, login, password, url):
         try:
             os.mkdir(self.folder)
         except FileExistsError:
@@ -279,7 +284,7 @@ def clean():
 
 
 if __name__ == "__main__":
-    c = Crawler(ETUTCL_USER, ETUTCL_PWD)
+    c = Crawler(ETUTCL_USER, ETUTCL_PWD, ETUTCL_URL)
     c.login_on_site()
     missions = c.load_dispos()
     [mission.event_to_google() for mission in missions]

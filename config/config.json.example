@@ -1,0 +1,14 @@
+{
+  "etutcl": {
+    "url": "http://etutcl.fr",
+    "user": "username",
+    "password": "password"
+  },
+  "google-calendar" : {
+    "api_key": "yourapikey",
+    "client_secret_file": "data/credentials/client_secret.js",
+    "scopes": "https://www.googleapis.com/auth/calendar",
+    "app_name": "yourAppNameDeclaredAtGoogle'sAPI",
+    "calendar_id": "primary"
+  }
+}

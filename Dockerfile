@@ -9,7 +9,7 @@ FROM python:3
 # ref. https://stackoverflow.com/a/24958548
 COPY client.py /
 COPY requirements.txt /
-COPY data-test /data-test
+COPY config /config
 
 # Commandes à executer dans l'immage pour setup le tout
 RUN pip3 install -r requirements.txt

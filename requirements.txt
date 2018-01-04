@@ -3,3 +3,4 @@ google-api-python-client
 xlrd
 httplib2
 bs4
+pyyaml
