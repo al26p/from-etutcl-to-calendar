@@ -114,3 +114,6 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+/data/credentials/client_secret.json
+/data/credentials/calendar-python-quickstart.json
+data/

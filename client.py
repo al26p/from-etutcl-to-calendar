@@ -1,3 +1,4 @@
+from __future__ import print_function
 import hashlib
 import re
 from datetime import datetime, timedelta
@@ -8,7 +9,48 @@ from bs4 import BeautifulSoup
 
 import xlrd
 
+import httplib2
+
+from apiclient import discovery
+from oauth2client import client, tools
+from oauth2client.file import Storage
+
+
 regex = r"((([0-9]{3,4})(a|sa|sd|DL)?)[ \/])?([0-9]{3,4}) x ((([0-9]{3,4})(a|sa|sd|DL)?)[ \/])?([0-9]{3,4})"
+
+SCOPES = 'https://www.googleapis.com/auth/calendar'
+APPLICATION_NAME = 'from-etutcl-to-calendar'
+CLIENT_SECRET_FILE = 'data/credentials/client_secret.json'
+CALENDAR_ID = os.environ.get("CALENDARID")
+ETUTCL_USER = os.environ.get("ETUTCLUSER")
+ETUTCL_PWD = os.environ.get("ETUTCLPASSWORD")
+API_KEY = os.environ.get("APIKEY")
+flags = []
+
+
+def get_credentials():
+    """Gets valid user credentials from storage.
+
+    If nothing has been stored, or if the stored credentials are invalid,
+    the OAuth2 flow is completed to obtain the new credentials.
+
+    Returns:
+        Credentials, the obtained credential.
+    """
+    credential_dir = 'data/credentials'
+    if not os.path.exists(credential_dir):
+        os.makedirs(credential_dir)
+    credential_path = os.path.join(credential_dir,
+                                   'calendar-python-quickstart.json')
+
+    store = Storage(credential_path)
+    credentials = store.get()
+    if not credentials or credentials.invalid:
+        flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
+        flow.user_agent = APPLICATION_NAME
+        credentials = tools.run_flow(flow, store, flags)
+        print('Storing credentials to ' + credential_path)
+    return credentials
 
 
 class Mission:
@@ -29,12 +71,12 @@ class Mission:
 
     def __parse_definition_horraire(self, definition, jour):
         m = re.fullmatch(regex, definition).groups()
-        self.prise_mission = parseHeure(m[2] or m[4], jour)
+        self.prise_mission = parse_heure(m[2] or m[4], jour)
         self.lieu_mission = m[3]
-        self.debut_service = parseHeure(m[4], jour)
-        self.fin_service = parseHeure(m[7] or m[9], jour)
+        self.debut_service = parse_heure(m[4], jour)
+        self.fin_service = parse_heure(m[7] or m[9], jour)
         self.lieu_fin_service = m[8]
-        self.fin_mission = parseHeure(m[9], jour)
+        self.fin_mission = parse_heure(m[9], jour)
 
     def __suppose_lieux_depuis_mission(self):
         if self.lieu_mission is None:
@@ -48,17 +90,94 @@ class Mission:
             elif self.num_mission.startswith('B'):
                 self.lieu_fin_service = 'C'
 
+    @property
+    def lieu_mission_humain(self):
+        return self.__lieu_a_humain(self.lieu_mission)
+
+    @property
+    def lieu_fin_mission_humain(self):
+        return self.__lieu_a_humain(self.lieu_fin_service)
+
+    def __lieu_a_humain(self, lieu):
+        if lieu == 'S':
+            return 'Soie'
+        elif lieu == 'C':
+            return 'CH'
+        elif lieu == 'a':
+            return 'ATE'
+        elif lieu == 'sa':
+            return 'SA'
+        elif lieu == 'sd':
+            return 'SD'
+        elif lieu == 'DL':
+            return 'DL'
+        else:
+            return lieu
+
     def to_row_value(self):
         return [
             self.num_mission,
             self.definition,
             self.prise_mission.strftime('%d/%m/%Y %H:%M'),
-            self.lieu_mission,
+            self.lieu_mission_humain,
             self.debut_service.strftime('%d/%m/%Y %H:%M'),
             self.fin_service.strftime('%d/%m/%Y %H:%M'),
-            self.lieu_fin_service,
+            self.lieu_fin_mission_humain,
             self.fin_mission.strftime('%d/%m/%Y %H:%M'),
         ]
+
+    def event_to_google(self):
+        """Shows basic usage of the Google Calendar API.
+
+            Creates a Google Calendar API service object and outputs a list of the next
+            10 events on the user's calendar.
+            """
+        credentials = get_credentials()
+        http = credentials.authorize(httplib2.Http())
+        credentials.refresh(http)
+        service = discovery.build('calendar', 'v3', http=http)
+
+        summary = self.num_mission + ' : ' + self.lieu_mission_humain + ' - ' + self.lieu_fin_mission_humain
+
+        ### Test if event is already there
+        isThere = False
+        time = self.prise_mission.isoformat() + '+01:00'
+        print(time)
+
+        eventsResult = service.events().list(
+            calendarId=CALENDAR_ID, timeMin=time, maxResults=3, singleEvents=True,
+            orderBy='startTime').execute()
+        events = eventsResult.get('items', [])
+        for event in events:
+            if event['summary'] == summary:
+                isThere = True
+
+        if not isThere:
+            event = {
+                'summary': summary,
+                'location': self.definition,
+                'description': self.num_mission + ' : ' + self.definition,
+                'start': {
+                    'dateTime': self.prise_mission.isoformat(),
+                    'timeZone': 'Europe/Paris',
+                },
+                'end': {
+                    'dateTime': self.fin_mission.isoformat(),
+                    'timeZone': 'Europe/Paris',
+                },
+                'reminders': {
+                    'useDefault': False,
+                    'overrides': [
+                        {'method': 'popup', 'minutes': 60},
+                        {'method': 'popup', 'minutes': 30},
+                        {'method': 'popup', 'minutes': 15},
+                    ],
+                },
+            }
+
+            event = service.events().insert(calendarId=CALENDAR_ID, body=event).execute()
+            print(self.__str__())
+            print('Event created: %s' % (event.get('htmlLink')))
 
     def __str__(self):
         return ' '.join(self.to_row_value())
@@ -66,7 +185,7 @@ class Mission:
 
 class Crawler:
 
-    folder = os.path.join(os.getcwd(), 'data')
+    folder = os.path.join(os.getcwd(), 'data/xls')
 
     def __init__(self, login, password, url="http://etutcl.fr"):
         try:
@@ -130,7 +249,7 @@ def import_excel(excel):
     return mySheet
 
 
-def parseHeure(h, jour):
+def parse_heure(h, jour):
     if h is None:
         return None
     time = datetime.strptime(h, '%H%M').time()
@@ -151,14 +270,17 @@ def list_horaires(sheet, groupe, jour):
         raise Exception('Groupe '+ groupe + ' introuvable!')
     for x in range(row.count('')):
         row.remove('')
-    works = [Mission(row[i], row[i + 1], jour) for i in range(0, len(row), 2)]
+    works = [Mission(row[i], row[i+1], jour) for i in range(0, len(row), 2)]
     return works
 
 
+def clean():
+    os.rmdir('data/xls')
+
+
 if __name__ == "__main__":
-    c = Crawler(os.getenv('LOGIN'), os.getenv('PASSWORD'))
+    c = Crawler(ETUTCL_USER, ETUTCL_PWD)
     c.login_on_site()
-    works = c.load_dispos()
-    for work in works:
-        print(work)
-    # list_horaires(excelHoraires, gpe, datetime(2018, 1, 3))
+    missions = c.load_dispos()
+    [mission.event_to_google() for mission in missions]
+    clean()
