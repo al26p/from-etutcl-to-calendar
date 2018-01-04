@@ -2,6 +2,7 @@ from __future__ import print_function
 import hashlib
 import re
 from datetime import datetime, timedelta
+import pytz
 import json
 import os
 import shutil
@@ -146,8 +147,11 @@ class Mission:
         summary = self.num_mission + ' : ' + self.lieu_mission_humain + ' - ' + self.lieu_fin_mission_humain
 
         ### Test if event is already there
+        paris = pytz.timezone('Europe/Paris')
+        time = paris.localize(self.prise_mission)
+        time = str(time)
+        time = time.replace(' ', 'T')
         isThere = False
-        time = self.prise_mission.isoformat() + '+01:00'
         print(time)
 
         eventsResult = service.events().list(
