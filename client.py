@@ -4,6 +4,7 @@ import re
 from datetime import datetime, timedelta
 import json
 import os
+import shutil
 import requests
 from bs4 import BeautifulSoup
 
@@ -19,7 +20,7 @@ from oauth2client.file import Storage
 regex = r"((([0-9]{3,4})(a|sa|sd|DL)?)[ \/])?([0-9]{3,4}) x ((([0-9]{3,4})(a|sa|sd|DL)?)[ \/])?([0-9]{3,4})"
 
 
-with open('config/config.json', 'r') as outfile:
+with open('data/config/config.json', 'r') as outfile:
     config = json.load(outfile)
 
 SCOPES = config['google-calendar']['scopes']
@@ -280,6 +281,14 @@ def list_horaires(sheet, groupe, jour):
 
 
 def clean():
+    folder = 'data/xls'
+    for the_file in os.listdir(folder):
+        file_path = os.path.join(folder, the_file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+        except Exception as e:
+            print(e)
     os.rmdir('data/xls')
 
 

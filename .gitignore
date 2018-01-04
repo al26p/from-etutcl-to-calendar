@@ -114,5 +114,8 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-/data/
-/config/config.json
+/data/config/config.json
+/data/credentials/
+/data/xls/
+
+!/data/config/config.json.example

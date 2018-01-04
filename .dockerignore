@@ -3,5 +3,3 @@
 *.sqlite3
 staticfiles
 uploads
-/data/credentials
-/config/config.json
