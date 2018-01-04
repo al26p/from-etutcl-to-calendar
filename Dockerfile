@@ -14,4 +14,4 @@ COPY requirements.txt /
 RUN pip3 install -r requirements.txt
 
 # Commande pour executer le script
-CMD [ "python", "./app/client.py" ]
+CMD [ "python", "./client.py" ]
